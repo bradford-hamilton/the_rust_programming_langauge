@@ -96,4 +96,78 @@ fn main() {
         println!("The value of x is: {}", x);
         println!("The value of y is: {}", y);
     }
+
+    // Set variable with a block expression
+    let y = {
+        let x = 3;
+        x + 1
+    };
+
+    // Return type on a function specified with "->". Implicit returns for the
+    // last expression in function
+    fn five() -> i32 {
+        5
+    }
+
+    // Conditionals -> condition *must* be a bool so you cannot do things like
+    // if varThatContainsAstring { ... Rust will not try to convert non-boolean
+    // types to it's corresponding truthiness/falsiness
+    let number = 3;
+    if number < 5 {
+        println!("condition was true");
+    } else if number == 5 {
+        println!("condition was false");
+    } else {
+        println!("condition was false");
+    }
+
+    // If statements can sit to the right of a variable assignment. Here number
+    // gets set to 5
+    let condition = true;
+    let number = if condition {
+        5
+    } else {
+        6
+    };
+    // However the possible types that can be assigned to "number" here have to
+    // be the same. We can't have if condition { 5 } else { "some string" };
+
+    // Loops: loop, while, and for
+    // loop
+    let mut counter = 0;
+    let result = loop {
+        counter += 1;
+
+        if counter == 10 {
+            break counter * 2;
+        }
+    };
+
+    // while
+    let mut number = 3;
+    while number != 0 {
+        println!("{}!", number);
+        number -= 1;
+    }
+
+    // for
+    let a = [10, 20, 30, 40, 50];
+    for element in a.iter() {
+        println!("the value is: {}", element);
+    }
+
+    // Another for
+    for number in (1..4).rev() {
+        println!("{}!", number);
+    }
+
+    // Ownership is Rust’s most unique feature, and it enables Rust to make memory
+    // safety guarantees without needing a garbage collector.
+
+    // All programs have to manage the way they use a computer’s memory while running. Some
+    // languages have garbage collection that constantly looks for no longer used memory as
+    // the program runs; in other languages, the programmer must explicitly allocate and free
+    // the memory. Rust uses a third approach: memory is managed through a system of ownership
+    // with a set of rules that the compiler checks at compile time. None of the ownership
+    // features slow down your program while it’s running.
 }
