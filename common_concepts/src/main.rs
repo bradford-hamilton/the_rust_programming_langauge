@@ -10,24 +10,24 @@ fn main() {
     let x = x * 2;
 
     // Integer Types
-    // Length	    Signed	  Unsigned
-    // 8-bit	    i8	      u8
-    // 16-bit	    i16	      u16
-    // 32-bit	    i32    	  u32
-    // 64-bit	    i64   	  u64
-    // 128-bit    i128	    u128
-    // arch	      size	    usize
+    // Length     Signed    Unsigned
+    // 8-bit      i8        u8
+    // 16-bit     i16       u16
+    // 32-bit     i32       u32
+    // 64-bit     i64       u64
+    // 128-bit    i128      u128
+    // arch       size      usize
 
     // When developing, rust will panic during an integer overflow. However, in "prod"
     // (--release flag) rust performs two’s complement wrapping. Ex: when you have a
     // u8 you will go to 0 after 255 -> wraps back around.
 
-    // Number literals	  Example
-    // Decimal	          98_222
-    // Hex	              0xff
-    // Octal	            0o77
-    // Binary	            0b1111_0000
-    // Byte (u8 only)	    b'A'
+    // Number literals    Example
+    // Decimal            98_222
+    // Hex                0xff
+    // Octal              0o77
+    // Binary             0b1111_0000
+    // Byte (u8 only)     b'A'
 
     // addition
     let sum = 5 + 10;
@@ -124,11 +124,7 @@ fn main() {
     // If statements can sit to the right of a variable assignment. Here number
     // gets set to 5
     let condition = true;
-    let number = if condition {
-        5
-    } else {
-        6
-    };
+    let number = if condition { 5 } else { 6 };
     // However the possible types that can be assigned to "number" here have to
     // be the same. We can't have if condition { 5 } else { "some string" };
 
