@@ -20,9 +20,7 @@ impl Company {
 }
 
 fn main() {
-    let mut my_company = Company {
-        employees: HashMap::new(),
-    };
+    let mut my_company = Company { employees: HashMap::new() };
     let department = String::from("engineering");
     let results = my_company.employees_by_department(department.to_string());
     
