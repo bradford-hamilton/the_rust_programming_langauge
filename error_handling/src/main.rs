@@ -137,10 +137,29 @@ use std::error::Error;
 use std::fs::File;
 
 fn main() -> Result<(), Box<dyn, Error>> {
-  let f = File::open("hello.txt")?;
+    let f = File::open("hello.txt")?;
 
-  Ok(())
+    Ok(())
 }
 // The Box<dyn Error> type is called a trait object, which we’ll talk about in the “Using Trait Objects that Allow for Values
 // of Different Types” section in Chapter 17. For now, you can read Box<dyn Error> to mean “any kind of error.” Using ? in a
 // main function with this return type is allowed.
+
+// Little example program
+pub struct Guess {
+    value: i32,
+}
+
+impl Guess {
+    pub fn new(value: i32) -> Guess {
+        if value < 1 || value > 100 {
+            panic!("Guess value must be between 1 and 100, got {}.", value);
+        }
+
+        Guess { value }
+    }
+
+    pub fn value(&self) -> i32 {
+        self.value
+    }
+}
