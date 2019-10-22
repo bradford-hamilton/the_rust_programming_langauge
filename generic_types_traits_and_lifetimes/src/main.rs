@@ -359,3 +359,176 @@ impl Summary for Tweet {
 // After we define summarize_author, we can call summarize on instances of the Tweet struct, and the default implementation of summarize will call the
 // definition of summarize_author that we’ve provided. Because we’ve implemented summarize_author, the Summary trait has given us the behavior of the
 // summarize method without requiring us to write any more code.
+
+// Traits as Parameters
+// Previously, we implemented the Summary trait on the NewsArticle and Tweet types. We can define a notify function that calls the summarize method on its
+// item parameter, which is of some type that implements the Summary trait. To do this, we can use the impl Trait syntax, like this:
+pub fn notify(item: impl Summary) {
+    println!("Breaking news! {}", item.summarize());
+}
+// Instead of a concrete type for the item parameter, we specify the impl keyword and the trait name. This parameter accepts any type that implements the
+// specified trait. In the body of notify, we can call any methods on item that come from the Summary trait, such as summarize. We can call notify and pass
+// in any instance of NewsArticle or Tweet. Code that calls the function with any other type, such as a String or an i32, won’t compile because those types
+// don’t implement Summary.
+
+// The impl Trait syntax works for straightforward cases but is actually syntax sugar for a longer form, which is called a trait bound; it looks like this:
+pub fn notify<T: Summary>(item: T) {
+    println!("Breaking news! {}", item.summarize());
+}
+
+// The impl Trait syntax is convenient and makes for more concise code in simple cases. The trait bound syntax can express more complexity in other cases. For
+// example, we can have two parameters that implement Summary. Using the impl Trait syntax looks like this:
+pub fn notify(item1: impl Summary, item2: impl Summary) {}
+
+// If we wanted this function to allow item1 and item2 to have different types, using impl Trait would be appropriate (as long as both types implement Summary).
+// If we wanted to force both parameters to have the same type, that’s only possible to express using a trait bound, like this:
+pub fn notify<T: Summary>(item1: T, item2: T) {}
+
+// We can also specify more than one trait bound. Say we wanted notify to use display formatting on item as well as the summarize method: we specify in the notify
+// definition that item must implement both Display and Summary. We can do so using the + syntax:
+pub fn notify(item: impl Summary + Display) {}
+
+// Or
+pub fn notify<T: Summary + Display>(item: T) {}
+
+// Using too many trait bounds has its downsides. Each generic has its own trait bounds, so functions with multiple generic type parameters can contain lots of trait
+// bound information between the function’s name and its parameter list, making the function signature hard to read. For this reason, Rust has alternate syntax for
+// specifying trait bounds inside a where clause after the function signature. So instead of writing this:
+fn some_function<T: Display + Clone, U: Clone + Debug>(t: T, u: U) -> i32 {}
+
+// We can do this:
+fn some_function<T, U>(t: T, u: U) -> i32
+where
+    T: Display + Clone,
+    U: Clone + Debug,
+{
+    println!("function body");
+}
+
+// Returning Types that Implement Traits.
+// We can also use the impl Trait syntax in the return position to return a value of some type that implements a trait, as shown here:
+fn returns_summerizable() -> impl Summary {
+    Tweet {
+        username: String::from("horse_ebooks"),
+        content: String::from("of course, as you probably already know, people"),
+        reply: false,
+        retweet: false,
+    }
+}
+// By using impl Summary for the return type, we specify that the returns_summarizable function returns some type that implements the Summary trait without naming
+// the concrete type. In this case, returns_summarizable returns a Tweet, but the code calling this function doesn’t know that. The ability to return a type that
+// is only specified by the trait it implements is especially useful in the context of closures and iterators, which we cover in Chapter 13. Closures and iterators
+// create types that only the compiler knows or types that are very long to specify. The impl Trait syntax lets you concisely specify that a function returns some
+// type that implements the Iterator trait without needing to write out a very long type.
+
+// However, you can only use impl Trait if you’re returning a single type. For example, this code that returns either a NewsArticle or a Tweet with the return type
+// specified as impl Summary wouldn’t work. Does not compile:
+fn returns_summarizable(switch: bool) -> impl Summary {
+    if switch {
+        NewsArticle {
+            headline: String::from("Penguins win the Stanley Cup Championship!"),
+            location: String::from("Pittsburgh, PA, USA"),
+            author: String::from("Iceburgh"),
+            content: String::from("The Pittsburgh Penguins once again are the best
+            hockey team in the NHL."),
+        }
+    } else {
+        Tweet {
+            username: String::from("horse_ebooks"),
+            content: String::from("of course, as you probably already know, people"),
+            reply: false,
+            retweet: false,
+        }
+    }
+}
+
+// With our non-generic versions of the largest function, we were only trying to find the largest i32 or char. As discussed in the “Stack-Only Data: Copy” section
+// in Chapter 4, types like i32 and char that have a known size can be stored on the stack, so they implement the Copy trait. But when we made the largest function
+// generic, it became possible for the list parameter to have types in it that don’t implement the Copy trait. Consequently, we wouldn’t be able to move the value]
+// out of list[0] and into the largest variable, resulting in an error.
+
+// To call this code with only those types that implement the Copy trait, we can add Copy to the trait bounds of T! Below shows the complete code of a generic
+// largest function that will compile as long as the types of the values in the slice that we pass into the function implement the PartialOrd and Copy traits,
+// like i32 and char do.
+fn largest<T: PartialOrd + Copy>(list: &[T]) -> T {
+    let mut largest = list[0];
+
+    for &item in list.iter() {
+        if item > largest {
+            largest = item;
+        }
+    }
+
+    largest
+}
+
+fn main() {
+    let number_list = vec![34, 50, 25, 100, 65];
+    let result = largest(&number_list);
+
+    let char_list = vec!['y', 'm', 'a', 'q'];
+    let result = largest(&number_list);
+}
+
+// If we don’t want to restrict the largest function to the types that implement the Copy trait, we could specify that T has the trait bound Clone instead of Copy.
+// Then we could clone each value in the slice when we want the largest function to have ownership. Using the clone function means we’re potentially making more
+// heap allocations in the case of types that own heap data like String, and heap allocations can be slow if we’re working with large amounts of data.
+
+// Another way we could implement largest is for the function to return a reference to a T value in the slice. If we change the return type to &T instead of T,
+// thereby changing the body of the function to return a reference, we wouldn’t need the Clone or Copy trait bounds and we could avoid heap allocations.
+
+// Using Trait Bounds to Conditionally Implement Methods
+// By using a trait bound with an impl block that uses generic type parameters, we can implement methods conditionally for types that implement the specified traits.
+// For example, the type Pair<T> in Listing 10-16 always implements the new function. But Pair<T> only implements the cmp_display method if its inner type T implements
+// the PartialOrd trait that enables comparison and the Display trait that enables printing.
+use std::fmt::Display;
+
+struct Pair<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Pair<T> {
+    fn new(x: T, y: T) -> Self {
+        Self { x, y }
+    }
+}
+
+impl<T: Display + PartialOrd> Pair<T> {
+    fn cmp_display(&self) {
+        if self.x > self.y {
+            println!("The largest member is x = {}", self.x);
+        } else {
+            println!("The largest member is y = {}", self.y);
+        }
+    }
+}
+
+// We can also conditionally implement a trait for any type that implements another trait. Implementations of a trait on any type that satisfies the trait bounds are
+// called blanket implementations and are extensively used in the Rust standard library. For example, the standard library implements the ToString trait on any type
+// that implements the Display trait. The impl block in the standard library looks similar to this code:
+impl<T: Display> ToString for T {
+    // ...
+}
+
+// Because the standard library has this blanket implementation, we can call the to_string method defined by the ToString trait on any type that implements the Display
+// trait. For example, we can turn integers into their corresponding String values like this because integers implement Display.
+let s = 3.to_string();
+
+// Traits and trait bounds let us write code that uses generic type parameters to reduce duplication but also specify to the compiler that we want the generic type to
+// have particular behavior. The compiler can then use the trait bound information to check that all the concrete types used with our code provide the correct behavior.
+// In dynamically typed languages, we would get an error at runtime if we called a method on a type that the type didn’t implement. But Rust moves these errors to compile
+// time so we’re forced to fix the problems before our code is even able to run. Additionally, we don’t have to write code that checks for behavior at runtime because
+// we’ve already checked at compile time. Doing so improves performance without having to give up the flexibility of generics.
+
+// Another kind of generic that we’ve already been using is called lifetimes. Rather than ensuring that a type has the behavior we want, lifetimes ensure that references
+// are valid as long as we need them to be. Let’s look at how lifetimes do that.
+
+// Validating References with Lifetimes
+// One detail we didn’t discuss in the “References and Borrowing” section in Chapter 4 is that every reference in Rust has a lifetime, which is the scope for which that
+// reference is valid. Most of the time, lifetimes are implicit and inferred, just like most of the time, types are inferred. We must annotate types when multiple types
+// are possible. In a similar way, we must annotate lifetimes when the lifetimes of references could be related in a few different ways. Rust requires us to annotate the
+// relationships using generic lifetime parameters to ensure the actual references used at runtime will definitely be valid.
+
+// The concept of lifetimes is somewhat different from tools in other programming languages, arguably making lifetimes Rust’s most distinctive feature. Although we won’t
+// cover lifetimes in their entirety in this chapter, we’ll discuss common ways you might encounter lifetime syntax so you can become familiar with the concepts.
