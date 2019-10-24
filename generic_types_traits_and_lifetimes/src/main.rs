@@ -532,3 +532,53 @@ let s = 3.to_string();
 
 // The concept of lifetimes is somewhat different from tools in other programming languages, arguably making lifetimes Rust’s most distinctive feature. Although we won’t
 // cover lifetimes in their entirety in this chapter, we’ll discuss common ways you might encounter lifetime syntax so you can become familiar with the concepts.
+
+// Preventing Dangling References with Lifetimes
+// The outer scope declares a variable named r with no initial value, and the inner scope declares a variable named x with the initial value of 5. Inside the inner scope,
+// we attempt to set the value of r as a reference to x. Then the inner scope ends, and we attempt to print the value in r. This code won’t compile because the value r is
+// referring to has gone out of scope before we try to use it. Here is the error message:
+{
+    let r;
+
+    {
+        let x = 5;
+        r = &x;
+    } // x goes out of scope and r holds a reference to it so r is no longer valid. x dropped here while still borrowed
+
+    println!("r: {}", r);
+}
+
+// The Borrow Checker
+// The Rust compiler has a borrow checker that compares scopes to determine whether all borrows are valid. Below shows the same code as above but with annotations
+// showing the lifetimes of the variables.
+{
+    let r;                // ---------+-- 'a
+                          //          |
+    {                     //          |
+        let x = 5;        // -+-- 'b  |
+        r = &x;           //  |       |
+    }                     // -+       |
+                          //          |
+    println!("r: {}", r); //          |
+}
+
+// Below fixes the code so it doesn’t have a dangling reference and compiles without any errors.
+
+{
+    let x = 5;            // ----------+-- 'b
+                          //           |
+    let r = &x;           // --+-- 'a  |
+                          //   |       |
+    println!("r: {}", r); //   |       |
+                          // --+       |
+}                         // ----------+
+
+// Generic Lifetimes in Functions
+// Let’s write a function that returns the longer of two string slices. This function will take two string slices and return a string slice. After we’ve implemented the
+// longest function, the code below should print The longest string is abcd.
+fn main() {
+    let string1 = String::from("abcd");
+    let string2 = "xyz";
+
+    let result = longest(string1.as_str(), string2);
+}
