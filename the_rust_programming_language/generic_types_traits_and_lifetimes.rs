@@ -575,10 +575,232 @@ let s = 3.to_string();
 
 // Generic Lifetimes in Functions
 // Let’s write a function that returns the longer of two string slices. This function will take two string slices and return a string slice. After we’ve implemented the
-// longest function, the code below should print The longest string is abcd.
+// longest function, the code below should print The longest string is abcd. Note that we want the function to take string slices, which are references, because we don’t
+// want the longest function to take ownership of its parameters. We want to allow the function to accept slices of a String (the type stored in the variable string1) as
+// well as string literals (which is what variable string2 contains).
 fn main() {
     let string1 = String::from("abcd");
     let string2 = "xyz";
 
     let result = longest(string1.as_str(), string2);
 }
+
+// Lifetime Annotation Syntax
+// Lifetime annotations don’t change how long any of the references live. Just as functions can accept any type when the signature specifies a generic type parameter,
+// functions can accept references with any lifetime by specifying a generic lifetime parameter. Lifetime annotations describe the relationships of the lifetimes of
+// multiple references to each other without affecting the lifetimes.
+
+// Lifetime annotations have a slightly unusual syntax: the names of lifetime parameters must start with an apostrophe (') and are usually all lowercase and very short,
+// like generic types. Most people use the name 'a. We place lifetime parameter annotations after the & of a reference, using a space to separate the annotation from
+// the reference’s type.
+
+// Here are some examples: a reference to an i32 without a lifetime parameter, a reference to an i32 that has a lifetime parameter named 'a, and a mutable reference to
+// an i32 that also has the lifetime 'a.
+&i32        // a reference
+&'a i32     // a reference with an explicit lifetime
+&'a mut i32 // a mutable reference with an explicit lifetime
+
+// Lifetime Annotations in Function Signatures
+// Now let’s examine lifetime annotations in the context of the longest function. As with generic type parameters, we need to declare generic lifetime parameters inside
+// angle brackets between the function name and the parameter list. The constraint we want to express in this signature is that all the references in the parameters and
+// the return value must have the same lifetime. We’ll name the lifetime 'a and then add it to each reference.
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() {
+        x
+    } else {
+        y
+    }
+}
+
+// The function signature now tells Rust that for some lifetime 'a, the function takes two parameters, both of which are string slices that live at least as long as
+// lifetime 'a. The function signature also tells Rust that the string slice returned from the function will live at least as long as lifetime 'a. In practice, it means
+// that the lifetime of the reference returned by the longest function is the same as the smaller of the lifetimes of the references passed in. These constraints are
+// what we want Rust to enforce. Remember, when we specify the lifetime parameters in this function signature, we’re not changing the lifetimes of any values passed in
+// or returned. Rather, we’re specifying that the borrow checker should reject any values that don’t adhere to these constraints. Note that the longest function doesn’t
+// need to know exactly how long x and y will live, only that some scope can be substituted for 'a that will satisfy this signature.
+
+// When we pass concrete references to longest, the concrete lifetime that is substituted for 'a is the part of the scope of x that overlaps with the scope of y. In other
+// words, the generic lifetime 'a will get the concrete lifetime that is equal to the smaller of the lifetimes of x and y. Because we’ve annotated the returned reference
+// with the same lifetime parameter 'a, the returned reference will also be valid for the length of the smaller of the lifetimes of x and y.
+
+// Let’s look at how the lifetime annotations restrict the longest function by passing in references that have different concrete lifetimes. This is valid code.
+fn main() {
+    let string1 = String::from("long string is long");
+
+    {
+        let string2 = String::from("xyz");
+        let result = longest(string1.as_str(), string2.as_str());
+
+    }
+}
+
+// Next, let’s try an example that shows that the lifetime of the reference in result must be the smaller lifetime of the two arguments. We’ll move the declaration of the
+// result variable outside the inner scope but leave the assignment of the value to the result variable inside the scope with string2. Then we’ll move the println! that
+// uses result outside the inner scope, after the inner scope has ended. This code will not compile.
+fn main() {
+    let string1 = String::from("long string is long");
+    let result;
+    {
+        let string2 = String::from("xyz");
+        result = longest(string1.as_str(), string2.as_str());
+    }
+    println!("The longest string is {}", result);
+}
+
+// The error shows that for result to be valid for the println! statement, string2 would need to be valid until the end of the outer scope. Rust knows this because we
+// annotated the lifetimes of the function parameters and return values using the same lifetime parameter 'a.
+
+// As humans, we can look at this code and see that string1 is longer than string2 and therefore result will contain a reference to string1. Because string1 has not gone
+// out of scope yet, a reference to string1 will still be valid for the println! statement. However, the compiler can’t see that the reference is valid in this case. We’ve
+// told Rust that the lifetime of the reference returned by the longest function is the same as the smaller of the lifetimes of the references passed in. Therefore, the
+// borrow checker disallows the code in Listing 10-24 as possibly having an invalid reference.
+
+// Here, even though we’ve specified a lifetime parameter 'a for the return type, this implementation will fail to compile because the return value lifetime is not related
+// to the lifetime of the parameters at all. Here is the error message we get:
+fn longest<'a>(x: &str, y: &str) -> &'a str {
+    let result = String::from("really long string");
+    result.as_str()
+}
+
+// Lifetime Annotations in Struct Definitions
+// So far, we’ve only defined structs to hold owned types. It’s possible for structs to hold references, but in that case we would need to add a lifetime annotation on
+// every reference in the struct’s definition. Below has a struct named ImportantExcerpt that holds a string slice.
+struct ImportantExcerpt<'a> {
+    part: &'a str,
+}
+
+fn main() {
+    let novel = String::from("Call me Ishmael. Some years ago...");
+    let first_sentence = novel.split(".").next().expect("Could not find a '.'");
+    let i = ImportantExcerpt {
+        part: first_sentence,
+    };
+}
+// This struct has one field, part, that holds a string slice, which is a reference. As with generic data types, we declare the name of the generic lifetime parameter
+// inside angle brackets after the name of the struct so we can use the lifetime parameter in the body of the struct definition. This annotation means an instance of
+// ImportantExcerpt can’t outlive the reference it holds in its part field.
+
+// The main function here creates an instance of the ImportantExcerpt struct that holds a reference to the first sentence of the String owned by the variable novel. The
+// data in novel exists before the ImportantExcerpt instance is created. In addition, novel doesn’t go out of scope until after the ImportantExcerpt goes out of scope,
+// so the reference in the ImportantExcerpt instance is valid.
+
+// Lifetime Elision
+// You’ve learned that every reference has a lifetime and that you need to specify lifetime parameters for functions or structs that use references. However, in Chapter 4
+// we had a function that compiled without lifetime annotations:
+fn first_word(s: &str) -> &str {
+    let bytes = s.as_bytes();
+
+    for (i, &item) in bytes.iter().enumerate() {
+        if item == b' ' {
+            return &s[0..i];
+        }
+    }
+
+    &s[..]
+}
+
+// The reason this function compiles without lifetime annotations is historical: in early versions (pre-1.0) of Rust, this code wouldn’t have compiled because every
+// reference needed an explicit lifetime. At that time, the function signature would have been written like this:
+fn first_word<'a>(s: &'a str) -> &'a str {}
+
+// After writing a lot of Rust code, the Rust team found that Rust programmers were entering the same lifetime annotations over and over in particular situations.
+// These situations were predictable and followed a few deterministic patterns. The developers programmed these patterns into the compiler’s code so the borrow checker
+// could infer the lifetimes in these situations and wouldn’t need explicit annotations.
+
+// The patterns programmed into Rust’s analysis of references are called the lifetime elision rules. These aren’t rules for programmers to follow; they’re a set of
+// particular cases that the compiler will consider, and if your code fits these cases, you don’t need to write the lifetimes explicitly.
+
+// The elision rules don’t provide full inference. If Rust deterministically applies the rules but there is still ambiguity as to what lifetimes the references have, the
+// compiler won’t guess what the lifetime of the remaining references should be. In this case, instead of guessing, the compiler will give you an error that you can
+// resolve by adding the lifetime annotations that specify how the references relate to each other.
+
+// Lifetimes on function or method parameters are called input lifetimes, and lifetimes on return values are called output lifetimes.
+
+// The compiler uses three rules to figure out what lifetimes references have when there aren’t explicit annotations. The first rule applies to input lifetimes, and the
+// second and third rules apply to output lifetimes. If the compiler gets to the end of the three rules and there are still references for which it can’t figure out
+// lifetimes, the compiler will stop with an error. These rules apply to fn definitions as well as impl blocks.
+
+// The first rule is that each parameter that is a reference gets its own lifetime parameter. In other words, a function with one parameter gets one lifetime
+// parameter: fn foo<'a>(x: &'a i32); a function with two parameters gets two separate lifetime parameters: fn foo<'a, 'b>(x: &'a i32, y: &'b i32); and so on.
+
+// The second rule is if there is exactly one input lifetime parameter, that lifetime is assigned to all output lifetime parameters: fn foo<'a>(x: &'a i32) -> &'a i32
+
+// Let’s pretend we’re the compiler. We’ll apply these rules to figure out what the lifetimes of the references in the signature of the first_word function are. The
+// signature starts without any lifetimes associated with the references:
+fn first_word(s: &str) -> &str {}
+
+// Then the compiler applies the first rule, which specifies that each parameter gets its own lifetime. We’ll call it 'a as usual, so now the signature is this:
+fn first_word<'a>(s: &'a str) -> &str {}
+
+// The second rule applies because there is exactly one input lifetime. The second rule specifies that the lifetime of the one input parameter gets assigned to the
+// output lifetime, so the signature is now this:
+fn first_word<'a>(s: &'a str) -> &'a str {}
+
+// Now all the references in this function signature have lifetimes, and the compiler can continue its analysis without needing the programmer to annotate the lifetimes
+// in this function signature.
+
+// Let’s look at another example, this time using the longest function that had no lifetime parameters when we started working with it before:
+fn longest(x: &str, y: &str) -> &str {}
+
+// Let’s apply the first rule: each parameter gets its own lifetime. This time we have two parameters instead of one, so we have two lifetimes:
+fn longest<'a, 'b>(x: &'a str, y: &'b str) -> &str {
+
+// You can see that the second rule doesn’t apply because there is more than one input lifetime. The third rule doesn’t apply either, because longest is a function rather
+// than a method, so none of the parameters are self. After working through all three rules, we still haven’t figured out what the return type’s lifetime is. This is why
+// we got an error trying to compile the code in Listing 10-21: the compiler worked through the lifetime elision rules but still couldn’t figure out all the lifetimes of
+// the references in the signature.
+
+// Because the third rule really only applies in method signatures, we’ll look at lifetimes in that context next to see why the third rule means we don’t have to annotate
+// lifetimes in method signatures very often.
+
+// Lifetime Annotations in Method Definitions
+// When we implement methods on a struct with lifetimes, we use the same syntax as that of generic type parameters shown in Listing 10-11. Where we declare and use the
+// lifetime parameters depends on whether they’re related to the struct fields or the method parameters and return values.
+
+// Lifetime names for struct fields always need to be declared after the impl keyword and then used after the struct’s name, because those lifetimes are part of the struct’s
+// type.
+
+// In method signatures inside the impl block, references might be tied to the lifetime of references in the struct’s fields, or they might be independent. In addition, the
+// lifetime elision rules often make it so that lifetime annotations aren’t necessary in method signatures. Let’s look at some examples using the struct named
+// ImportantExcerpt that we defined in Listing 10-25. First, we’ll use a method named level whose only parameter is a reference to self and whose return value is an i32,
+// which is not a reference to anything:
+impl<'a> ImportantExcerpt<'a> {
+    fn level(&self) -> i32 {
+        3
+    }
+}
+
+// The lifetime parameter declaration after impl and its use after the type name are required, but we’re not required to annotate the lifetime of the reference to self
+// because of the first elision rule. Here is an example where the third lifetime elision rule applies:
+impl<'a> ImportantExcerpt<'a> {
+    fn announce_and_return_part(&self, announcement: &str) -> &str {
+        println!("Attention please: {}", announcement);
+        self.part
+    }
+}
+
+// The Static Lifetime
+// One special lifetime we need to discuss is 'static, which means that this reference can live for the entire duration of the program. All string literals have the 'static
+// lifetime, which we can annotate as follows:
+let s: &'static str = "I have a static lifetime";
+// The text of this string is stored directly in the program’s binary, which is always available. Therefore, the lifetime of all string literals is 'static.
+
+// Generic Type Parameters, Trait Bounds, and Lifetimes Together
+// Let’s briefly look at the syntax of specifying generic type parameters, trait bounds, and lifetimes all in one function!
+use std::fmt::Display;
+
+fn longest_with_an_announcement<'a, T>(x: &'a str, y: &'a str, ann: T) -> &'a str
+where
+    T: Display,
+{
+    println!("Announcement! {}", ann);
+    if x.len() > y.len() {
+        x
+    } else {
+        y
+    }
+}
+// This is the longest function from Listing 10-22 that returns the longer of two string slices. But now it has an extra parameter named ann of the generic type T, which
+// can be filled in by any type that implements the Display trait as specified by the where clause. This extra parameter will be printed before the function compares the
+// lengths of the string slices, which is why the Display trait bound is necessary. Because lifetimes are a type of generic, the declarations of the lifetime parameter
+// 'a and the generic type parameter T go in the same list inside the angle brackets after the function name.
