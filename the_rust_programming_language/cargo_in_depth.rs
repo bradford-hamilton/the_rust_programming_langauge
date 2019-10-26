@@ -205,3 +205,46 @@ $ cargo yank --vers 1.0.1 --undo
 
 // A yank does not delete any code. For example, the yank feature is not intended for deleting accidentally uploaded secrets.
 // If that happens, you must reset those secrets immediately.
+
+// Cargo Workspaces
+// A workspace is a set of packages that share the same Cargo.lock and output directory. Let’s make a project using a
+// workspace—we’ll use trivial code so we can concentrate on the structure of the workspace. There are multiple way
+// to structure a workspace; we’re going to show one common way. We’ll have a workspace containing a binary and two
+// libraries. The binary, which will provide the main functionality, will depend on the two libraries. One library
+// will provide an add_one function, and a second library an add_two function. These three crates will be part of
+// the same workspace. We’ll start by creating a new directory for the workspace:
+
+// Next, in the add directory, we create the Cargo.toml file that will configure the entire workspace. This file won’t
+// have a [package] section or the metadata we’ve seen in other Cargo.toml files. Instead, it will start with a [workspace]
+// section that will allow us to add members to the workspace by specifying the path to our binary crate; in this case,
+// that path is adder:
+[workspace]
+
+members = [
+    "adder",
+    "add-one",
+]
+
+├── Cargo.lock
+├── Cargo.toml
+├── add-one
+│   ├── Cargo.toml
+│   └── src
+│       └── lib.rs
+├── adder
+│   ├── Cargo.toml
+│   └── src
+│       └── main.rs
+└── target
+
+// Notice that the workspace has only one Cargo.lock file at the top level of the workspace rather than having a Cargo.lock in
+// each crate’s directory. This ensures that all crates are using the same version of all dependencies. If we add the rand
+// crate to the adder/Cargo.toml and add-one/Cargo.toml files, Cargo will resolve both of those to one version of rand and
+// record that in the one Cargo.lock. Making all crates in the workspace use the same dependencies means the crates in the
+// workspace will always be compatible with each other. Let’s add the rand crate to the [dependencies] section in the
+// add-one/Cargo.toml file to be able to use the rand crate in the add-one crate:
+[dependencies]
+
+rand = "0.3.14"
+
+// Installing Binaries from Crates.io with cargo install
