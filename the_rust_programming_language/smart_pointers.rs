@@ -483,3 +483,83 @@ mod tests {
 }
 
 // Keeping Track of Borrows at Runtime with RefCell<T>
+// When creating immutable and mutable references, we use the & and &mut syntax, respectively. With RefCell<T>, we use
+// the borrow and borrow_mut methods, which are part of the safe API that belongs to RefCell<T>. The borrow method
+// returns the smart pointer type Ref<T>, and borrow_mut returns the smart pointer type RefMut<T>. Both types implement
+// Deref, so we can treat them like regular references.
+
+// The RefCell<T> keeps track of how many Ref<T> and RefMut<T> smart pointers are currently active. Every time we call
+// borrow, the RefCell<T> increases its count of how many immutable borrows are active. When a Ref<T> value goes out of
+// scope, the count of immutable borrows goes down by one. Just like the compile-time borrowing rules, RefCell<T> lets us
+// have many immutable borrows or one mutable borrow at any point in time.
+
+// If we try to violate these rules, rather than getting a compiler error as we would with references, the implementation
+// of RefCell<T> will panic at runtime. Listing 15-23 shows a modification of the implementation of send in Listing 15-22.
+// We’re deliberately trying to create two mutable borrows active for the same scope to illustrate that RefCell<T> prevents
+// us from doing this at runtime. This code panics!
+impl Messenger for MockMessenger {
+    fn send(&self, message: &str) {
+        let mut one_borrow = self.sent_messages.borrow_mut();
+        let mut two_borrow = self.sent_messages.borrow_mut();
+
+        one_borrow.push(String::from(message));
+        two_borrow.push(String::from(message));
+    }
+}
+
+// Catching borrowing errors at runtime rather than compile time means that you would find a mistake in your code later in the
+// development process and possibly not until your code was deployed to production. Also, your code would incur a small runtime
+// performance penalty as a result of keeping track of the borrows at runtime rather than compile time. However, using RefCell<T>
+// makes it possible to write a mock object that can modify itself to keep track of the messages it has seen while you’re using
+// it in a context where only immutable values are allowed. You can use RefCell<T> despite its trade-offs to get more
+// functionality than regular references provide.
+
+// Having Multiple Owners of Mutable Data by Combining Rc<T> and RefCell<T>
+// A common way to use RefCell<T> is in combination with Rc<T>. Recall that Rc<T> lets you have multiple owners of some data, but
+// it only gives immutable access to that data. If you have an Rc<T> that holds a RefCell<T>, you can get a value that can have
+// multiple owners and that you can mutate!
+
+// For example, recall the cons list example in Listing 15-18 where we used Rc<T> to allow multiple lists to share ownership of
+// another list. Because Rc<T> holds only immutable values, we can’t change any of the values in the list once we’ve created
+// them. Let’s add in RefCell<T> to gain the ability to change the values in the lists. Listing 15-24 shows that by using a
+// RefCell<T> in the Cons definition, we can modify the value stored in all the lists:
+#[derive(Debug)]
+enum List {
+    Cons(Rc<RefCell<i32>>, Rc<List>),
+    Nil,
+}
+
+use crate::List::{Cons, Nil};
+use std::rc::Rc;
+use std::cell::RefCell;
+
+fn main() {
+    let value = Rc::new(RefCell::new(5));
+
+    let a = Rc::new(Cons(Rc::clone(&value), Rc::new(Nil)));
+
+    let b = Cons(Rc::new(RefCell::new(6)), Rc::clone(&a));
+    let c = Cons(Rc::new(RefCell::new(10)), Rc::clone(&a));
+
+    *value.borrow_mut() += 10;
+
+    println!("a after = {:?}", a);
+    println!("b after = {:?}", b);
+    println!("c after = {:?}", c);
+}
+
+// We create a value that is an instance of Rc<RefCell<i32>> and store it in a variable named value so we can access it directly
+// later. Then we create a List in a with a Cons variant that holds value. We need to clone value so both a and value have ownership
+// of the inner 5 value rather than transferring ownership from value to a or having a borrow from value.
+
+// We wrap the list a in an Rc<T> so when we create lists b and c, they can both refer to a, which is what we did in Listing 15-18.
+
+// After we’ve created the lists in a, b, and c, we add 10 to the value in value. We do this by calling borrow_mut on value, which
+// uses the automatic dereferencing feature we discussed in Chapter 5 (see the section “Where’s the -> Operator?”) to dereference
+// the Rc<T> to the inner RefCell<T> value. The borrow_mut method returns a RefMut<T> smart pointer, and we use the dereference
+// operator on it and change the inner value.
+
+// When we print a, b, and c, we can see that they all have the modified value of 15 rather than 5:
+// a after = Cons(RefCell { value: 15 }, Nil)
+// b after = Cons(RefCell { value: 6 }, Cons(RefCell { value: 15 }, Nil))
+// c after = Cons(RefCell { value: 10 }, Cons(RefCell { value: 15 }, Nil))
